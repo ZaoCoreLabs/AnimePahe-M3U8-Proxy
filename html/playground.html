@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Hase0278's M3U8 Proxy Playground</title>
+    <title>AnimePahe M3U8 Proxy</title>
     <meta charset="utf-8">
     <style>
         body {
@@ -33,8 +33,7 @@
             color: #aaa;
         }
 
-        input,
-        textarea {
+        input {
             width: 100%;
             box-sizing: border-box;
             background: #252525;
@@ -88,14 +87,11 @@
 
 <body>
     <div class="container">
-        <h1>M3U8 Proxy Playground</h1>
+        <h1>AnimePahe M3U8 Proxy</h1>
 
         <label for="url">M3U8 URL</label>
         <input type="text" id="url"
             value="https://vault-16.owocdn.top/stream/16/16/252f009224b5ebc12a3e0ec633e1f85aa33bdd7e0ef6ac9b6d6134a38e869eba/uwu.m3u8" />
-
-        <label for="headers">Request Headers (JSON)</label>
-        <textarea id="headers" rows="3">{"referer": "https://kwik.cx"}</textarea>
 
         <button onclick="test()">Play Now</button>
         <div id="status">Ready to test.</div>
@@ -113,12 +109,10 @@
 
         function test() {
             const url = document.getElementById('url').value;
-            let headers = document.getElementById('headers').value;
             const status = document.getElementById('status');
             const errorLog = document.getElementById('errorLog');
             const videoElement = document.getElementById('videoPlayer');
 
-            // Cleanup previous instance
             if (player) {
                 player.dispose();
                 player = null;
@@ -127,14 +121,7 @@
             errorLog.style.display = 'none';
             errorLog.innerText = '';
 
-            try {
-                headers = JSON.parse(headers);
-            } catch (e) {
-                headers = {};
-                console.warn("Invalid JSON, using empty headers");
-            }
-
-            const proxyUrl = `/m3u8-proxy?url=${encodeURIComponent(url)}&headers=${encodeURIComponent(JSON.stringify(headers))}`;
+            const proxyUrl = `/m3u8-proxy?url=${encodeURIComponent(url)}`;
 
             player = videojs(videoElement, {
                 html5: {
