@@ -55,6 +55,20 @@ function buildUpstreamHeaders(req, url, headersParam) {
 
     if (referer) {
         let refStr = decodeURIComponent(referer);
+
+        if (url.hostname.includes('kwik') || url.hostname.includes('kwics')) {
+            refStr = CONFIG.ANIMEPAHE_BASE + '/';
+        }
+
+        if (url.hostname.includes('kwik') || url.hostname.includes('kwics')) {
+            refStr = CONFIG.ANIMEPAHE_BASE;
+            if (!refStr.endsWith('/')) refStr += '/';
+        } else if (url.hostname.includes('owocdn') || url.hostname.includes('cdn')) {
+            if (!refStr.includes('kwik.cx')) {
+                refStr = CONFIG.DEFAULT_REFERER;
+            }
+        }
+
         if (refStr.includes('kwik.cx') && !refStr.endsWith('/')) {
             refStr += '/';
         }
@@ -184,6 +198,10 @@ app.get("/m3u8-proxy", async (req, res) => {
         }
 
         const url = new URL(urlStr);
+
+        // Determine if we need to enforce specific logic before building headers
+        // But buildUpstreamHeaders handles it now.
+
         const headersParam = req.query.headers ? decodeURIComponent(req.query.headers) : "";
         const headers = buildUpstreamHeaders(req, url, headersParam);
 
