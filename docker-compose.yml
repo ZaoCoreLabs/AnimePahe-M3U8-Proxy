@@ -1,0 +1,11 @@
+services:
+  animepahe-proxy:
+    build: .
+    image: ghcr.io/zaocorelabs/animepahe-m3u8-proxy
+    container_name: animepahe-m3u8-proxy
+    ports:
+      - "3001:3000"
+    environment:
+      - PORT=3000
+      - ALLOWED_ORIGINS=*
+    restart: unless-stopped
