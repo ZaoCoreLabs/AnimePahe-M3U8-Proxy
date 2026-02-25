@@ -64,7 +64,6 @@ function buildUpstreamHeaders(req, url, headersParam) {
     if (referer) {
         let refStr = decodeURIComponent(referer);
 
-        // Dynamic referer logic based on target URL
         if (url.hostname.includes('kwik') || url.hostname.includes('kwics')) {
             refStr = CONFIG.ANIMEPAHE_BASE;
             if (!refStr.endsWith('/')) refStr += '/';
@@ -257,6 +256,127 @@ app.get("/m3u8-proxy", async (req, res) => {
         if (!res.headersSent) {
             safeSend(500, { message: e.message });
         }
+    }
+});
+
+app.get("/subs-proxy", async (req, res) => {
+    const safeSend = createSafeSender(res);
+    const origin = req.headers.origin || "";
+
+    if (!isOriginAllowed(origin)) {
+        return safeSend(403, `The origin "${origin}" was blacklisted.`);
+    }
+
+    try {
+        const urlStr = req.query.url;
+        if (!urlStr) return safeSend(400, { message: "URL is required" });
+
+        const url = new URL(urlStr);
+        const headersParam = req.query.headers ? decodeURIComponent(req.query.headers) : "";
+        const headers = buildUpstreamHeaders(req, url, headersParam);
+
+        const options = {
+            method: 'GET',
+            url: url.href,
+            headers: headers,
+            encoding: null,
+            resolveWithFullResponse: true,
+            timeout: 15000
+        };
+
+        const targetResponse = await cloudscraper(options);
+        updateCookieJar(url, targetResponse);
+        setCorsHeaders(req, res);
+
+        res.setHeader('Content-Type', 'text/vtt');
+        res.status(targetResponse.statusCode).send(targetResponse.body);
+
+    } catch (err) {
+        console.error("Subs Proxy Error:", err.message);
+        safeSend(err.response?.statusCode || 500, { error: err.message });
+    }
+});
+
+app.get("/thumbnails-proxy", async (req, res) => {
+    const safeSend = createSafeSender(res);
+    try {
+        const urlStr = req.query.url;
+        if (!urlStr) return safeSend(400, { message: "URL is required" });
+
+        const url = new URL(urlStr);
+        const headersParam = req.query.headers ? decodeURIComponent(req.query.headers) : "";
+        const headers = buildUpstreamHeaders(req, url, headersParam);
+
+        const targetResponse = await cloudscraper({
+            url: url.href,
+            method: 'GET',
+            headers: headers,
+            encoding: null,
+            resolveWithFullResponse: true,
+            timeout: 15000
+        });
+
+        updateCookieJar(url, targetResponse);
+        setCorsHeaders(req, res);
+
+        let content = targetResponse.body.toString('utf8');
+        const lines = content.split('\n').map(line => {
+            const trimmed = line.trim();
+            if (trimmed && !trimmed.startsWith('WEBVTT') && !trimmed.includes('-->')) {
+                try {
+                    const [urlPart, hashPart] = trimmed.split('#');
+                    const absUrl = new URL(urlPart, url.href).href;
+                    
+                    let proxyUrl = `/image-segments-proxy?url=${encodeURIComponent(absUrl)}`;
+                    if (headersParam) proxyUrl += `&headers=${encodeURIComponent(headersParam)}`;
+                    
+                    return hashPart ? `${proxyUrl}#${hashPart}` : proxyUrl;
+                } catch (e) { return line; }
+            }
+            return line;
+        });
+
+        res.setHeader('Content-Type', 'text/vtt');
+        res.status(200).send(lines.join('\n'));
+
+    } catch (err) {
+        console.error("Thumbnails VTT Error:", err.message);
+        safeSend(err.response?.statusCode || 500, { error: err.message });
+    }
+});
+
+app.get("/image-segments-proxy", async (req, res) => {
+    const safeSend = createSafeSender(res);
+    try {
+        const urlStr = req.query.url;
+        if (!urlStr) return safeSend(400, { message: "URL is required" });
+
+        const url = new URL(urlStr);
+        const headersParam = req.query.headers ? decodeURIComponent(req.query.headers) : "";
+        const headers = buildUpstreamHeaders(req, url, headersParam);
+
+        const targetResponse = await cloudscraper({
+            url: url.href,
+            method: 'GET',
+            headers: headers,
+            encoding: null,
+            resolveWithFullResponse: true,
+            timeout: 20000
+        });
+
+        updateCookieJar(url, targetResponse);
+        setCorsHeaders(req, res);
+
+        const contentType = targetResponse.headers['content-type'];
+        if (contentType) res.setHeader('Content-Type', contentType);
+        
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+
+        res.status(targetResponse.statusCode).send(targetResponse.body);
+
+    } catch (err) {
+        console.error("Image Segment Error:", err.message);
+        safeSend(err.response?.statusCode || 500, { error: err.message });
     }
 });
 
